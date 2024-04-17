@@ -10,7 +10,6 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -19,7 +18,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'ECG Monitoring App'),
     );
   }
 }
@@ -47,21 +46,18 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Text(text),
-            ],
+            children: <Widget>[Text(text)],
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           List<UsbDevice> devices = await UsbSerial.listDevices();
-          print(devices[0]);
           setState(() {
             text = devices.toString();
           });
           UsbPort port;
-          if (devices.length == 0) {
+          if (devices.isEmpty) {
             return;
           }
           port = (await devices[0].create())!;
@@ -71,7 +67,6 @@ class _MyHomePageState extends State<MyHomePage> {
             setState(() {
               text += "\nFailed to open port";
             });
-            print("Failed to open");
             return;
           }
           setState(() {
@@ -80,19 +75,24 @@ class _MyHomePageState extends State<MyHomePage> {
           await port.setDTR(true);
           await port.setRTS(true);
 
-          port.setPortParameters(115200, UsbPort.DATABITS_8, UsbPort.STOPBITS_1,
-              UsbPort.PARITY_NONE);
+          try {
+            await port.setPortParameters(9600, UsbPort.DATABITS_8,
+                UsbPort.STOPBITS_1, UsbPort.PARITY_NONE);
 
-          // print first result and close port.
-          port.inputStream?.listen((Uint8List event) {
-            print(event);
             setState(() {
-              text += '\n$event';
+              text += "\nParameters set, data is being read...\n";
             });
-            // port.close();
-          });
-
-          // await port.write(Uint8List.fromList([0x10, 0x00]));
+            port.inputStream!.listen((Uint8List event) {
+              setState(() {
+                String dataAsString = String.fromCharCodes(event);
+                text += dataAsString;
+              });
+            });
+          } catch (e) {
+            setState(() {
+              text += "\nFailed to set parameters: $e";
+            });
+          }
         },
         tooltip: 'Increment',
         child: const Icon(Icons.add),
