@@ -1,7 +1,7 @@
-import 'dart:typed_data';
-
+import 'package:ecgapp/graph_page.dart';
 import 'package:flutter/material.dart';
 import 'package:usb_serial/usb_serial.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 void main() {
   runApp(const MyApp());
@@ -33,7 +33,25 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  var text = '';
+  List<String?> allDevices = [];
+
+  Future<void> _getDevices() async {
+    List<UsbDevice> devices = await UsbSerial.listDevices();
+    if (devices.isEmpty) {
+      Fluttertoast.showToast(
+          msg: "No devices found",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0);
+      return;
+    }
+    setState(() {
+      allDevices = devices.map((e) => e.deviceName).toList();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,60 +60,47 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[Text(text)],
-          ),
+      body: Container(
+        height: MediaQuery.of(context).size.height,
+        width: MediaQuery.of(context).size.width,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Column(
+              children: <Widget>[
+                for (var i = 0; i < allDevices.length; i++)
+                  Card(
+                    child: ListTile(
+                      title: Text(allDevices[i]!),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => GraphPage(id: i),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                const SizedBox(height: 5),
+              ],
+            ),
+            Spacer(),
+            ElevatedButton(
+              onPressed: () async {
+                await _getDevices();
+              },
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Scan devices'),
+                  SizedBox(width: 10),
+                  Icon(Icons.search),
+                ],
+              ),
+            ),
+          ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          List<UsbDevice> devices = await UsbSerial.listDevices();
-          setState(() {
-            text = devices.toString();
-          });
-          UsbPort port;
-          if (devices.isEmpty) {
-            return;
-          }
-          port = (await devices[0].create())!;
-
-          bool openResult = await port.open();
-          if (!openResult) {
-            setState(() {
-              text += "\nFailed to open port";
-            });
-            return;
-          }
-          setState(() {
-            text += "\nOpened port: $openResult";
-          });
-          await port.setDTR(true);
-          await port.setRTS(true);
-
-          try {
-            await port.setPortParameters(9600, UsbPort.DATABITS_8,
-                UsbPort.STOPBITS_1, UsbPort.PARITY_NONE);
-
-            setState(() {
-              text += "\nParameters set, data is being read...\n";
-            });
-            port.inputStream!.listen((Uint8List event) {
-              setState(() {
-                String dataAsString = String.fromCharCodes(event);
-                text += dataAsString;
-              });
-            });
-          } catch (e) {
-            setState(() {
-              text += "\nFailed to set parameters: $e";
-            });
-          }
-        },
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
