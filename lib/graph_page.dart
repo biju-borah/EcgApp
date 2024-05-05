@@ -1,12 +1,14 @@
+import 'dart:async';
 import 'dart:typed_data';
-
+import 'package:ecgapp/graph_data.dart';
 import 'package:flutter/material.dart';
+import 'package:iirjdart/butterworth.dart';
 import 'package:usb_serial/usb_serial.dart';
-// import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 class GraphPage extends StatefulWidget {
-  const GraphPage({super.key, required this.id});
-  final int id;
+  const GraphPage({super.key});
+  // final int id;
 
   @override
   State<GraphPage> createState() => _GraphPageState();
@@ -15,14 +17,37 @@ class GraphPage extends StatefulWidget {
 class _GraphPageState extends State<GraphPage> {
   var text = '';
   var msg = '';
-  var data = <String>[];
+  var data = <double>[];
   var timestamp = <DateTime>[];
   var dataPoint = '';
+  int i = 0;
+  List<double> values = GraphData().values;
 
   @override
   void initState() {
     super.initState();
-    _startConnection(widget.id);
+    // _startConnection(widget.id);
+    plotgraph();
+  }
+
+  late ChartSeriesController _chartSeriesController;
+
+  void plotgraph() {
+    Butterworth butterworth = Butterworth();
+    butterworth.bandPass(4, 250, 5, 10);
+    Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      setState(() {
+        data.add(butterworth.filter(values[i]));
+        timestamp.add(DateTime.now());
+        i++;
+        if (data.length > 100) {
+          data.removeAt(0);
+          timestamp.removeAt(0);
+          _chartSeriesController.updateDataSource(
+              addedDataIndex: data.length - 1, removedDataIndex: 0);
+        }
+      });
+    });
   }
 
   Future<void> _startConnection(int id) async {
@@ -61,9 +86,17 @@ class _GraphPageState extends State<GraphPage> {
           text += dataAsString;
           if (dataAsString.contains('\n')) {
             dataPoint += dataAsString.split('\n')[0];
-            data.add(dataPoint);
+            data.add(double.parse(dataPoint));
             timestamp.add(DateTime.now());
-            dataPoint = dataAsString.split('\n')[1];
+            dataPoint = '';
+
+            if (data.length > 100) {
+              data.removeAt(0);
+              timestamp.removeAt(0);
+            }
+
+            _chartSeriesController.updateDataSource(
+                addedDataIndex: data.length - 1, removedDataIndex: 0);
           } else {
             dataPoint += dataAsString;
           }
@@ -87,9 +120,22 @@ class _GraphPageState extends State<GraphPage> {
           padding: const EdgeInsets.all(10),
           child: Column(
             children: [
-              data.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : Text(data.toString()),
+              SfCartesianChart(
+                primaryXAxis: const DateTimeAxis(),
+                primaryYAxis: const NumericAxis(),
+                series: <LineSeries<double, DateTime>>[
+                  LineSeries<double, DateTime>(
+                    onRendererCreated: (ChartSeriesController controller) {
+                      _chartSeriesController = controller;
+                    },
+                    dataSource: data,
+                    xValueMapper: (double data, int index) => timestamp[index],
+                    yValueMapper: (double data, int index) => data,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text(data.isEmpty ? '' : 'Data: $data'),
             ],
           ),
         ),
