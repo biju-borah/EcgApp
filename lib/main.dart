@@ -1,5 +1,4 @@
 import 'package:ecgapp/graph_page.dart';
-import 'package:ecgapp/processing_page.dart';
 import 'package:flutter/material.dart';
 import 'package:usb_serial/usb_serial.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -19,7 +18,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const ProcessingPage(),
+      home: const MyHomePage(title: 'ECG monitoring app'),
     );
   }
 }
@@ -77,7 +76,9 @@ class _MyHomePageState extends State<MyHomePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => GraphPage(),
+                            builder: (context) => GraphPage(
+                              id: i,
+                            ),
                           ),
                         );
                       },
