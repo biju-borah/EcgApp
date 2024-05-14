@@ -1,4 +1,3 @@
-import 'package:ecgapp/graph_page.dart';
 import 'package:ecgapp/leadconfig_page.dart';
 import 'package:flutter/material.dart';
 import 'package:usb_serial/usb_serial.dart';

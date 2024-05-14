@@ -64,6 +64,7 @@ class _GraphPageState extends State<GraphPage> {
 
   void resetGraph() {
     setState(() {
+      analyzeData = true;
       data.clear();
       timestampData.clear();
       _chartSeriesController.updateDataSource(
@@ -72,9 +73,6 @@ class _GraphPageState extends State<GraphPage> {
   }
 
   void plotgraph() {
-    setState(() {
-      analyzeData = true;
-    });
     resetGraph();
     Butterworth butterworth = Butterworth();
     butterworth.bandPass(order, sampleRate, centerFrequency, widthFrequency);
@@ -82,14 +80,14 @@ class _GraphPageState extends State<GraphPage> {
     // butterworth.bandPass(3, 250, 50, 25);
     // butterworthlog.bandPass(3, 250, 45, 44.5);
     Timer.periodic(const Duration(milliseconds: 8), (timer) {
-      // if (i >= values.length) {
-      //   timer.cancel();
-      //   saveLogData(logData);
-      //   print('Data saved');
-      //   return;
-      // }
-      setState(() {
-        try {
+      if (i >= values.length) {
+        timer.cancel();
+        // saveLogData(logData);
+        // print('Data saved');
+        return;
+      }
+      if (isRecording == false && analyzeData == true) {
+        setState(() {
           data.add(values[i]);
           filteredData.add(butterworth.filter(values[i]));
           // logData.add(butterworthlog.filter(values[i]));
@@ -104,12 +102,8 @@ class _GraphPageState extends State<GraphPage> {
             _chartSeriesControllerFiltered.updateDataSource(
                 addedDataIndex: filteredData.length - 1, removedDataIndex: 0);
           }
-        } catch (e) {
-          print(e);
-          text += '\nError: $e';
-          data.clear();
-        }
-      });
+        });
+      }
     });
   }
 
@@ -145,36 +139,38 @@ class _GraphPageState extends State<GraphPage> {
         startTimestamp = DateTime.now().millisecondsSinceEpoch;
       });
       port.inputStream!.listen((Uint8List event) {
-        if (DateTime.now().millisecondsSinceEpoch - startTimestamp > 30000) {
+        if (DateTime.now().millisecondsSinceEpoch - startTimestamp > 30000 &&
+            isRecording) {
           port.close();
           setState(() {
             text += "\nConnection closed";
             isRecording = false;
           });
           return;
-        }
-        setState(() {
-          String dataAsString = String.fromCharCodes(event);
-          // text += dataAsString;
-          if (dataAsString.contains('\n')) {
-            dataPoint += dataAsString.split('\n')[0];
-            values.add(double.parse(dataPoint));
-            timestamp.add(DateTime.now());
-            data.add(double.parse(dataPoint));
-            timestampData.add(DateTime.now());
-            dataPoint = '';
+        } else {
+          setState(() {
+            String dataAsString = String.fromCharCodes(event);
+            // text += dataAsString;
+            if (dataAsString.contains('\n')) {
+              dataPoint += dataAsString.split('\n')[0];
+              values.add(double.parse(dataPoint));
+              timestamp.add(DateTime.now());
+              data.add(double.parse(dataPoint));
+              timestampData.add(DateTime.now());
+              dataPoint = '';
 
-            if (data.length > 100) {
-              data.removeAt(0);
-              timestampData.removeAt(0);
+              if (data.length > 100) {
+                data.removeAt(0);
+                timestampData.removeAt(0);
+              }
+
+              _chartSeriesController.updateDataSource(
+                  addedDataIndex: data.length - 1, removedDataIndex: 0);
+            } else {
+              dataPoint += dataAsString;
             }
-
-            _chartSeriesController.updateDataSource(
-                addedDataIndex: data.length - 1, removedDataIndex: 0);
-          } else {
-            dataPoint += dataAsString;
-          }
-        });
+          });
+        }
       });
     } catch (e) {
       setState(() {
