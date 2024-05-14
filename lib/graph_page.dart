@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:ecgapp/processing_page.dart';
 import 'package:flutter/material.dart';
 import 'package:iirjdart/butterworth.dart';
 import 'package:usb_serial/usb_serial.dart';
@@ -19,6 +20,7 @@ class GraphPage extends StatefulWidget {
 class _GraphPageState extends State<GraphPage> {
   var isRecording = true;
   var analyzeData = false;
+  var filteringStatus = false;
   var text = '';
   var msg = '';
   var data = <double>[];
@@ -34,7 +36,7 @@ class _GraphPageState extends State<GraphPage> {
   var startTimestamp = DateTime.now().millisecondsSinceEpoch;
 
   int order = 3;
-  double sampleRate = 300;
+  double sampleRate = 250;
   double centerFrequency = 45;
   double widthFrequency = 44.5;
 
@@ -76,12 +78,16 @@ class _GraphPageState extends State<GraphPage> {
     resetGraph();
     Butterworth butterworth = Butterworth();
     butterworth.bandPass(order, sampleRate, centerFrequency, widthFrequency);
-    // Butterworth butterworthlog = Butterworth();
+    Butterworth butterworthlog = Butterworth();
     // butterworth.bandPass(3, 250, 50, 25);
-    // butterworthlog.bandPass(3, 250, 45, 44.5);
-    Timer.periodic(const Duration(milliseconds: 8), (timer) {
+    butterworthlog.bandPass(order, sampleRate, centerFrequency, widthFrequency);
+    Timer.periodic(const Duration(milliseconds: 50), (timer) {
       if (i >= values.length) {
         timer.cancel();
+        setState(() {
+          analyzeData = false;
+          filteringStatus = true;
+        });
         // saveLogData(logData);
         // print('Data saved');
         return;
@@ -90,7 +96,7 @@ class _GraphPageState extends State<GraphPage> {
         setState(() {
           data.add(values[i]);
           filteredData.add(butterworth.filter(values[i]));
-          // logData.add(butterworthlog.filter(values[i]));
+          logData.add(butterworthlog.filter(values[i]));
           timestampData.add(timestamp[i]);
           i++;
           if (data.length > 100) {
@@ -139,7 +145,7 @@ class _GraphPageState extends State<GraphPage> {
         startTimestamp = DateTime.now().millisecondsSinceEpoch;
       });
       port.inputStream!.listen((Uint8List event) {
-        if (DateTime.now().millisecondsSinceEpoch - startTimestamp > 30000 &&
+        if (DateTime.now().millisecondsSinceEpoch - startTimestamp > 20000 &&
             isRecording) {
           port.close();
           setState(() {
@@ -210,14 +216,31 @@ class _GraphPageState extends State<GraphPage> {
                     const SizedBox(height: 20),
                     isRecording
                         ? const Text('Recording...')
-                        : ElevatedButton(
-                            onPressed: () {
-                              plotgraph();
-                            },
-                            child: const Text('Analyse Data'),
-                          ),
+                        : analyzeData
+                            ? const Text('Filtering...')
+                            : filteringStatus
+                                ? ElevatedButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => ProcessingPage(
+                                            rawValue: values,
+                                            values: logData,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text('Extract features'),
+                                  )
+                                : ElevatedButton(
+                                    onPressed: () {
+                                      plotgraph();
+                                    },
+                                    child: const Text('Analyse Data'),
+                                  ),
                     const SizedBox(height: 20),
-                    analyzeData
+                    analyzeData || filteringStatus
                         ? SfCartesianChart(
                             primaryXAxis: const DateTimeAxis(),
                             primaryYAxis: const NumericAxis(),

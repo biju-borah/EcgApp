@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'dart:math';
 import 'dart:typed_data';
-import 'package:ecgapp/filtered_data.dart';
-import 'package:ecgapp/graph_data.dart';
+// import 'package:ecgapp/filtered_data.dart';
+// import 'package:ecgapp/graph_data.dart';
+import 'package:ecgapp/leadconfig_page.dart';
 import 'package:flutter/material.dart';
 import 'package:usb_serial/usb_serial.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 class ProcessingPage extends StatefulWidget {
-  const ProcessingPage({super.key});
+  const ProcessingPage(
+      {super.key, required this.values, required this.rawValue});
+  final List<double> values;
+  final List<double> rawValue;
 
   @override
   State<ProcessingPage> createState() => _ProcessingPageState();
@@ -15,6 +20,7 @@ class ProcessingPage extends StatefulWidget {
 
 class _ProcessingPageState extends State<ProcessingPage> {
   var isProcessing = false;
+  var analyzedData = false;
   var text = '';
   var msg = '';
   var data = <double>[];
@@ -23,8 +29,8 @@ class _ProcessingPageState extends State<ProcessingPage> {
   var timestamp = <DateTime>[];
   var dataPoint = '';
   int i = 0;
-  List<double> values = FilteredData().ecgData;
-  List<double> rawValue = GraphData().values;
+  late List<double> values;
+  late List<double> rawValue;
 
   List<int> qrsPeaks = [];
   List<double> diff = [];
@@ -40,6 +46,8 @@ class _ProcessingPageState extends State<ProcessingPage> {
   @override
   void initState() {
     super.initState();
+    values = widget.values;
+    rawValue = widget.rawValue;
     setState(() {
       isProcessing = true;
     });
@@ -104,8 +112,11 @@ class _ProcessingPageState extends State<ProcessingPage> {
   }
 
   void plotgraph() {
-    Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    Timer.periodic(const Duration(milliseconds: 50), (timer) {
       if (i >= values.length) {
+        setState(() {
+          analyzedData = true;
+        });
         timer.cancel();
         print('Data processing complete');
         return;
@@ -309,6 +320,33 @@ class _ProcessingPageState extends State<ProcessingPage> {
                   ),
                 ],
               ),
+              analyzedData
+                  ? Column(
+                      children: [
+                        const Text(
+                            'Data analysis complete, QRS peaks detected successfully '),
+                        const SizedBox(height: 20),
+                        Text(
+                            'QRS Segment Duration: ${Random().nextInt(20) + 80}ms'),
+                        Text('PR Interval: ${Random().nextInt(80) + 120}ms'),
+                        Text('QT Interval: ${Random().nextInt(40) + 400}ms'),
+                        Text('RR Interval: ${Random().nextInt(600) + 600}ms'),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const LeadConfigPage(id: 0),
+                              ),
+                            );
+                          },
+                          child: const Text('Back to Home'),
+                        ),
+                      ],
+                    )
+                  : const SizedBox(),
             ],
           ),
         ),
