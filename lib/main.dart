@@ -1,4 +1,5 @@
 import 'package:ecgapp/graph_page.dart';
+import 'package:ecgapp/leadconfig_page.dart';
 import 'package:flutter/material.dart';
 import 'package:usb_serial/usb_serial.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -19,6 +20,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const MyHomePage(title: 'ECG monitoring app'),
+      // home: const GraphPage()
     );
   }
 }
@@ -76,10 +78,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => GraphPage(
-                              id: i,
-                            ),
-                          ),
+                              builder: (context) => LeadConfigPage(id: i)),
                         );
                       },
                     ),

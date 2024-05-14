@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:typed_data';
-// import 'package:ecgapp/graph_data.dart';
 import 'package:flutter/material.dart';
 import 'package:iirjdart/butterworth.dart';
 import 'package:usb_serial/usb_serial.dart';
@@ -18,6 +17,8 @@ class GraphPage extends StatefulWidget {
 }
 
 class _GraphPageState extends State<GraphPage> {
+  var isRecording = true;
+  var analyzeData = false;
   var text = '';
   var msg = '';
   var data = <double>[];
@@ -30,8 +31,10 @@ class _GraphPageState extends State<GraphPage> {
   // List<double> values = GraphData().values;
   List<double> values = [];
 
+  var startTimestamp = DateTime.now().millisecondsSinceEpoch;
+
   int order = 3;
-  double sampleRate = 250;
+  double sampleRate = 300;
   double centerFrequency = 45;
   double widthFrequency = 44.5;
 
@@ -59,13 +62,26 @@ class _GraphPageState extends State<GraphPage> {
     await file.writeAsString(csv);
   }
 
+  void resetGraph() {
+    setState(() {
+      data.clear();
+      timestampData.clear();
+      _chartSeriesController.updateDataSource(
+          addedDataIndex: 0, removedDataIndex: data.length);
+    });
+  }
+
   void plotgraph() {
+    setState(() {
+      analyzeData = true;
+    });
+    resetGraph();
     Butterworth butterworth = Butterworth();
     butterworth.bandPass(order, sampleRate, centerFrequency, widthFrequency);
     // Butterworth butterworthlog = Butterworth();
     // butterworth.bandPass(3, 250, 50, 25);
     // butterworthlog.bandPass(3, 250, 45, 44.5);
-    Timer.periodic(const Duration(milliseconds: 100), (timer) {
+    Timer.periodic(const Duration(milliseconds: 8), (timer) {
       // if (i >= values.length) {
       //   timer.cancel();
       //   saveLogData(logData);
@@ -73,19 +89,25 @@ class _GraphPageState extends State<GraphPage> {
       //   return;
       // }
       setState(() {
-        data.add(values[i]);
-        filteredData.add(butterworth.filter(values[i]));
-        // logData.add(butterworthlog.filter(values[i]));
-        timestampData.add(timestamp[i]);
-        i++;
-        if (data.length > 100) {
-          data.removeAt(0);
-          filteredData.removeAt(0);
-          timestampData.removeAt(0);
-          _chartSeriesController.updateDataSource(
-              addedDataIndex: data.length - 1, removedDataIndex: 0);
-          _chartSeriesControllerFiltered.updateDataSource(
-              addedDataIndex: filteredData.length - 1, removedDataIndex: 0);
+        try {
+          data.add(values[i]);
+          filteredData.add(butterworth.filter(values[i]));
+          // logData.add(butterworthlog.filter(values[i]));
+          timestampData.add(timestamp[i]);
+          i++;
+          if (data.length > 100) {
+            data.removeAt(0);
+            filteredData.removeAt(0);
+            timestampData.removeAt(0);
+            _chartSeriesController.updateDataSource(
+                addedDataIndex: data.length - 1, removedDataIndex: 0);
+            _chartSeriesControllerFiltered.updateDataSource(
+                addedDataIndex: filteredData.length - 1, removedDataIndex: 0);
+          }
+        } catch (e) {
+          print(e);
+          text += '\nError: $e';
+          data.clear();
         }
       });
     });
@@ -120,8 +142,17 @@ class _GraphPageState extends State<GraphPage> {
 
       setState(() {
         text += "\nParameters set, data is being read...\n";
+        startTimestamp = DateTime.now().millisecondsSinceEpoch;
       });
       port.inputStream!.listen((Uint8List event) {
+        if (DateTime.now().millisecondsSinceEpoch - startTimestamp > 30000) {
+          port.close();
+          setState(() {
+            text += "\nConnection closed";
+            isRecording = false;
+          });
+          return;
+        }
         setState(() {
           String dataAsString = String.fromCharCodes(event);
           // text += dataAsString;
@@ -129,19 +160,20 @@ class _GraphPageState extends State<GraphPage> {
             dataPoint += dataAsString.split('\n')[0];
             values.add(double.parse(dataPoint));
             timestamp.add(DateTime.now());
+            data.add(double.parse(dataPoint));
+            timestampData.add(DateTime.now());
             dataPoint = '';
 
-            // if (data.length > 100) {
-            //   data.removeAt(0);
-            //   timestamp.removeAt(0);
-            // }
+            if (data.length > 100) {
+              data.removeAt(0);
+              timestampData.removeAt(0);
+            }
 
-            // _chartSeriesController.updateDataSource(
-            //     addedDataIndex: data.length - 1, removedDataIndex: 0);
+            _chartSeriesController.updateDataSource(
+                addedDataIndex: data.length - 1, removedDataIndex: 0);
           } else {
             dataPoint += dataAsString;
           }
-          plotgraph();
         });
       });
     } catch (e) {
@@ -180,22 +212,33 @@ class _GraphPageState extends State<GraphPage> {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    SfCartesianChart(
-                      primaryXAxis: const DateTimeAxis(),
-                      primaryYAxis: const NumericAxis(),
-                      series: <LineSeries<double, DateTime>>[
-                        LineSeries<double, DateTime>(
-                          onRendererCreated:
-                              (ChartSeriesController controller) {
-                            _chartSeriesControllerFiltered = controller;
-                          },
-                          dataSource: filteredData,
-                          xValueMapper: (double data, int index) =>
-                              timestampData[index],
-                          yValueMapper: (double data, int index) => data,
-                        ),
-                      ],
-                    ),
+                    isRecording
+                        ? const Text('Recording...')
+                        : ElevatedButton(
+                            onPressed: () {
+                              plotgraph();
+                            },
+                            child: const Text('Analyse Data'),
+                          ),
+                    const SizedBox(height: 20),
+                    analyzeData
+                        ? SfCartesianChart(
+                            primaryXAxis: const DateTimeAxis(),
+                            primaryYAxis: const NumericAxis(),
+                            series: <LineSeries<double, DateTime>>[
+                              LineSeries<double, DateTime>(
+                                onRendererCreated:
+                                    (ChartSeriesController controller) {
+                                  _chartSeriesControllerFiltered = controller;
+                                },
+                                dataSource: filteredData,
+                                xValueMapper: (double data, int index) =>
+                                    timestampData[index],
+                                yValueMapper: (double data, int index) => data,
+                              ),
+                            ],
+                          )
+                        : const SizedBox(height: 0),
                   ],
                 )
               : Column(
