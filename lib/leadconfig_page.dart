@@ -154,7 +154,11 @@ class _LeadConfigPageState extends State<LeadConfigPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: ElevatedButton(
                         onPressed: () {
-                          // Handle lead 2 button press
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => GraphPage(id: widget.id)),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           padding:
@@ -168,7 +172,11 @@ class _LeadConfigPageState extends State<LeadConfigPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: ElevatedButton(
                         onPressed: () {
-                          // Handle lead 3 button press
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => GraphPage(id: widget.id)),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           padding:

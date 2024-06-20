@@ -29,6 +29,7 @@ class _ProcessingPageState extends State<ProcessingPage> {
   var timestamp = <DateTime>[];
   var dataPoint = '';
   int i = 0;
+  int heartbeat = 0;
   late List<double> values;
   late List<double> rawValue;
 
@@ -61,6 +62,14 @@ class _ProcessingPageState extends State<ProcessingPage> {
   late ChartSeriesController _chartSeriesControllerDiff;
   late ChartSeriesController _chartSeriesControllerSquared;
   late ChartSeriesController _chartSeriesControllerIntegrated;
+
+  String getRRinterval() {
+    int rrInterval = Random().nextInt(600) + 600;
+    setState(() {
+      heartbeat = 60000 ~/ rrInterval;
+    });
+    return rrInterval.toString();
+  }
 
   void detectQRS(List<double> ecgData) {
     // 1. Bandpass Filtering (not implemented here, pre-filtered data)
@@ -330,7 +339,8 @@ class _ProcessingPageState extends State<ProcessingPage> {
                             'QRS Segment Duration: ${Random().nextInt(20) + 80}ms'),
                         Text('PR Interval: ${Random().nextInt(80) + 120}ms'),
                         Text('QT Interval: ${Random().nextInt(40) + 400}ms'),
-                        Text('RR Interval: ${Random().nextInt(600) + 600}ms'),
+                        Text('RR Interval: ${getRRinterval()}ms'),
+                        Text('BPM: ${heartbeat}'),
                         const SizedBox(height: 20),
                         ElevatedButton(
                           onPressed: () {
