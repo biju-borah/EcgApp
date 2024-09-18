@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:ecgapp/processing_page.dart';
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:iirjdart/butterworth.dart';
 import 'package:usb_serial/usb_serial.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
@@ -57,7 +58,8 @@ class _GraphPageState extends State<GraphPage> {
     final String csv = const ListToCsvConverter().convert(csvData);
 
     final Directory? directory = await getExternalStorageDirectory();
-    final String filePath = '${directory!.path}/logdata.csv';
+    final String filePath =
+        '${directory!.path}/EcgLogData_${DateTime.now()}.csv';
 
     print(filePath);
     final File file = File(filePath);
@@ -88,7 +90,16 @@ class _GraphPageState extends State<GraphPage> {
           analyzeData = false;
           filteringStatus = true;
         });
-        // saveLogData(logData);
+        saveLogData(logData);
+        Fluttertoast.showToast(
+          msg: 'Data saved',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.green,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
         // print('Data saved');
         return;
       }
